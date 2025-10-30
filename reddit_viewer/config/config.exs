@@ -8,6 +8,7 @@
 import Config
 
 config :reddit_viewer,
+  ecto_repos: [RedditViewer.Repo],
   generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint

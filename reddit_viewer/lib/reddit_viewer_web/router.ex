@@ -17,7 +17,7 @@ defmodule RedditViewerWeb.Router do
   scope "/", RedditViewerWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", RedditLive
   end
 
   # Other scopes may use custom stacks.

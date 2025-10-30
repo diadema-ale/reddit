@@ -1,0 +1,672 @@
+<div class="min-h-screen bg-gray-100 py-8">
+  <div class="w-full mx-auto px-4 sm:px-6 lg:px-8">
+    <%!-- Progress Indicator --%>
+    <%= if @fetch_progress do %>
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 max-w-7xl mx-auto">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <%= case @fetch_progress.status do %>
+              <% :fetching -> %>
+                <.icon name="hero-arrow-path" class="size-5 text-blue-600 animate-spin" />
+                <span class="text-blue-800 font-medium">Fetching Historical Posts</span>
+              <% :complete -> %>
+                <.icon name="hero-check-circle" class="size-5 text-green-600" />
+                <span class="text-green-800 font-medium">Fetch Complete</span>
+              <% :error -> %>
+                <.icon name="hero-exclamation-circle" class="size-5 text-red-600" />
+                <span class="text-red-800 font-medium">Fetch Error</span>
+            <% end %>
+            <span class="text-sm text-gray-600">{@fetch_progress.message}</span>
+          </div>
+          <div class="text-sm text-gray-500">
+            <span class="font-medium">{@fetch_progress.posts_fetched}</span> posts
+            <%= if @fetch_progress.oldest_date && @fetch_progress.newest_date do %>
+              <span class="mx-1">·</span>
+              <span class="text-gray-600">
+                from {@fetch_progress.oldest_date} to {@fetch_progress.newest_date}
+              </span>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+    
+    <%!-- Search Form --%>
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8 max-w-7xl mx-auto">
+      <h1 class="text-2xl font-bold mb-4 text-gray-800">Author History</h1>
+      <.form for={%{"search" => %{"reddit_url" => @reddit_url}}} phx-submit="search" class="mb-4" id="search-form">
+        <div class="flex gap-2">
+          <.input
+            name="search[reddit_url]"
+            type="text"
+            placeholder="Enter Reddit post URL..."
+            value={@reddit_url}
+            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <button
+            type="submit"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+          >
+            Load Post
+          </button>
+        </div>
+      </.form>
+
+      <%= if @loading do %>
+        <div class="flex items-center justify-center py-4">
+          <.icon name="hero-arrow-path" class="size-6 text-blue-500 animate-spin" />
+          <span class="ml-2 text-gray-600">Loading...</span>
+        </div>
+      <% end %>
+
+      <%= if @error do %>
+        <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-red-700">{@error}</p>
+        </div>
+      <% end %>
+    </div>
+
+    <%!-- Single Post Display --%>
+    <%= if @post do %>
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8 max-w-7xl mx-auto">
+      <% full_title = Map.get(@post, "title", "Untitled") %>
+      <% truncated_title = if String.length(full_title) > 50 do
+        String.slice(full_title, 0, 50) <> "..."
+      else
+        full_title
+      end %>
+      <h2 class="text-xl font-semibold mb-4 text-gray-800" title={full_title}>{truncated_title}</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <p class="text-gray-600">
+            <span class="font-semibold">Author:</span> u/{Map.get(@post, "author", "N/A")}
+          </p>
+          <p class="text-gray-600">
+            <span class="font-semibold">Subreddit:</span> r/{Map.get(@post, "subreddit", "N/A")}
+          </p>
+        </div>
+        <div>
+          <p class="text-gray-600">
+            <span class="font-semibold">Upvotes:</span> {Map.get(@post, "score", 0)}
+          </p>
+          <p class="text-gray-600">
+            <span class="font-semibold">Comments:</span> {Map.get(@post, "num_comments", 0)}
+          </p>
+        </div>
+      </div>
+      
+      <% selftext = Map.get(@post, "selftext") %>
+      <%= if selftext && selftext != "" do %>
+        <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+          <% truncated_text = if String.length(selftext) > 150 do
+            String.slice(selftext, 0, 150) <> "..."
+          else
+            selftext
+          end %>
+          <p class="text-gray-700 whitespace-pre-wrap">{truncated_text}</p>
+        </div>
+      <% end %>
+
+      <div class="flex items-center gap-4 mt-4 text-sm text-gray-500">
+        <p>
+          <span class="font-medium">Posted:</span> 
+          <% timestamp = Map.get(@post, "created_utc") %>
+          <%= if timestamp do %>
+            {DateTime.from_unix!(round(timestamp)) |> DateTime.to_string()}
+          <% end %>
+        </p>
+      </div>
+      <% ticker_symbols = Map.get(@post, "ticker_symbols", []) %>
+      <% ticker_direction = Map.get(@post, "ticker_direction") %>
+      <%= if ticker_symbols != [] do %>
+        <% badge_colors = case ticker_direction do
+          "long" -> "bg-green-100 text-green-800"
+          "short" -> "bg-red-100 text-red-800"
+          _ -> "bg-gray-100 text-gray-800"
+        end %>
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <p class="text-gray-600 mb-2">Ticker Symbols Mentioned:</p>
+          <div class="flex flex-wrap gap-2">
+            <%= for ticker <- ticker_symbols do %>
+              <span class={"inline-flex items-center px-3 py-1 rounded-full text-sm font-medium #{badge_colors}"}>
+                ${ticker}
+              </span>
+            <% end %>
+          </div>
+          <%= if Map.get(@post, "cached") do %>
+            <p class="text-xs text-gray-500 mt-2">
+              <.icon name="hero-check-circle" class="size-3 inline" /> Data from cache
+            </p>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    <% end %>
+    
+    <%!-- Pitch Summary Table --%>
+    <%= if @pitch_summary do %>
+      <div class="bg-white rounded-lg shadow-md p-6 mb-4 max-w-4xl mx-auto">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Performance Summary for u/{Map.get(@post || %{}, "author", "N/A")}</h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Direction
+                </th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Count
+                </th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Right Direction
+                </th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Wrong Direction
+                </th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Success Rate
+                </th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Avg Return (Right)
+                </th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Avg Return (Wrong)
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <%!-- Long positions --%>
+              <tr>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Long
+                  </span>
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  {@pitch_summary.long.count}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  {@pitch_summary.long.right_direction}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  {@pitch_summary.long.wrong_direction}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  <%= if @pitch_summary.long.count > 0 do %>
+                    {Float.round(@pitch_summary.long.right_direction / @pitch_summary.long.count * 100, 1)}%
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  <%= if @pitch_summary.long.avg_return_right do %>
+                    <span class="text-green-600">
+                      <%= if @pitch_summary.long.avg_return_right > 0 do %>+<% end %>{@pitch_summary.long.avg_return_right}%
+                    </span>
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  <%= if @pitch_summary.long.avg_return_wrong do %>
+                    <span class="text-red-600">
+                      <%= if @pitch_summary.long.avg_return_wrong > 0 do %>+<% end %>{@pitch_summary.long.avg_return_wrong}%
+                    </span>
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
+              </tr>
+              
+              <%!-- Short positions --%>
+              <tr>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    Short
+                  </span>
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  {@pitch_summary.short.count}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  {@pitch_summary.short.right_direction}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  {@pitch_summary.short.wrong_direction}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  <%= if @pitch_summary.short.count > 0 do %>
+                    {Float.round(@pitch_summary.short.right_direction / @pitch_summary.short.count * 100, 1)}%
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  <%= if @pitch_summary.short.avg_return_right do %>
+                    <span class="text-green-600">
+                      <%= if @pitch_summary.short.avg_return_right > 0 do %>+<% end %>{@pitch_summary.short.avg_return_right}%
+                    </span>
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  <%= if @pitch_summary.short.avg_return_wrong do %>
+                    <span class="text-red-600">
+                      <%= if @pitch_summary.short.avg_return_wrong > 0 do %>+<% end %>{@pitch_summary.short.avg_return_wrong}%
+                    </span>
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
+              </tr>
+              
+              <%!-- Total row --%>
+              <tr class="border-t-2 border-gray-300">
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">
+                  TOTAL
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
+                  {@pitch_summary.total.count}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
+                  {@pitch_summary.total.right_direction}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
+                  {@pitch_summary.total.wrong_direction}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
+                  <%= if @pitch_summary.total.count > 0 do %>
+                    {Float.round(@pitch_summary.total.right_direction / @pitch_summary.total.count * 100, 1)}%
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
+                  <%= if @pitch_summary.total.avg_return_right do %>
+                    <span class="text-green-600">
+                      <%= if @pitch_summary.total.avg_return_right > 0 do %>+<% end %>{@pitch_summary.total.avg_return_right}%
+                    </span>
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
+                  <%= if @pitch_summary.total.avg_return_wrong do %>
+                    <span class="text-red-600">
+                      <%= if @pitch_summary.total.avg_return_wrong > 0 do %>+<% end %>{@pitch_summary.total.avg_return_wrong}%
+                    </span>
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
+              </tr>
+              
+              <%!-- Neutral row --%>
+              <tr>
+                <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    Neutral
+                  </span>
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                  {@pitch_summary.neutral.count}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center" colspan="5">
+                  <span class="text-gray-400">Not applicable for neutral positions</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-2">
+          <p class="text-xs text-gray-500 italic">
+            * Returns are calculated using 6-month forward returns when available. For positions less than 6 months old, current returns are used instead.
+          </p>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- View Toggle Buttons --%>
+    <%= if @user_posts != [] do %>
+      <div class="bg-white rounded-lg shadow-md p-6 w-full mx-auto mb-4">
+        <div class="flex gap-4 justify-center">
+          <button
+            phx-click="toggle_view"
+            phx-value-view="posts"
+            class={[
+              "px-6 py-2 rounded-lg font-medium transition-colors duration-200",
+              if(@view_mode == :posts, do: "bg-blue-600 text-white", else: "bg-gray-200 text-gray-700 hover:bg-gray-300")
+            ]}
+          >
+            <.icon name="hero-document-text" class="size-5 inline mr-2" />
+            Posts View
+          </button>
+          <button
+            phx-click="toggle_view"
+            phx-value-view="tickers"
+            class={[
+              "px-6 py-2 rounded-lg font-medium transition-colors duration-200",
+              if(@view_mode == :tickers, do: "bg-blue-600 text-white", else: "bg-gray-200 text-gray-700 hover:bg-gray-300")
+            ]}
+          >
+            <.icon name="hero-chart-bar" class="size-5 inline mr-2" />
+            Tickers View
+          </button>
+        </div>
+      </div>
+    <% end %>
+    
+    <%!-- User Posts Table --%>
+    <%= if @user_posts != [] && @view_mode == :posts do %>
+      <div class="bg-white rounded-lg shadow-md p-6 w-full mx-auto">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold text-gray-800">
+            Recent Posts by u/{Map.get(@post, "author", "N/A")}
+          </h2>
+          <% has_failed = Enum.any?(@user_posts, fn p -> Map.get(p, "ai_processing_error") != nil end) %>
+          <%= if has_failed do %>
+            <button
+              phx-click="retry_failed"
+              phx-value-author={Map.get(@post, "author", "")}
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
+            >
+              <.icon name="hero-arrow-path" class="size-4 mr-1 inline" />
+              Retry Failed
+            </button>
+          <% end %>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  #
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Subreddit
+                </th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-80 max-w-xs">
+                  Title
+                </th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Flair
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">
+                  Ticker
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Upvotes
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Comments
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Title Length
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Post Length
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <%= for {post, index} <- Enum.with_index(@user_posts, 1) do %>
+                <tr class="hover:bg-gray-50">
+                  <td class="px-3 py-4 text-center text-sm text-gray-500">
+                    {index}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    r/{Map.get(post, "subreddit", "")}
+                  </td>
+                  <td class="px-3 py-4 text-sm text-gray-900 w-80 max-w-xs">
+                    <a
+                      href={"https://reddit.com#{Map.get(post, "permalink", "")}"}
+                      target="_blank"
+                      class="hover:text-blue-600 hover:underline line-clamp-2 block truncate"
+                      title={Map.get(post, "title", "")}
+                    >
+                      {Map.get(post, "title", "")}
+                    </a>
+                  </td>
+                  <td class="px-3 py-4 text-sm text-gray-500">
+                    <RedditViewerWeb.Components.UI.FlairBadge.flair_badge text={
+                      Map.get(post, "link_flair_text")
+                    } />
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-500 min-w-[200px]">
+                    <% tickers = Map.get(post, "ticker_symbols", []) %>
+                    <% direction = Map.get(post, "ticker_direction") %>
+                    <% ai_error = Map.get(post, "ai_processing_error") %>
+                    <% ai_processed = Map.get(post, "ai_processed_at") %>
+                    
+                    <%= cond do %>
+                      <% ai_error != nil -> %>
+                        <div class="flex items-center gap-2">
+                          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                            <.icon name="hero-exclamation-triangle" class="size-3 mr-1" />
+                            Failed
+                          </span>
+                        </div>
+                      
+                      <% ai_processed == nil -> %>
+                        <div class="flex items-center gap-1">
+                          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <.icon name="hero-arrow-path" class="size-3 mr-1 animate-spin" />
+                            Processing...
+                          </span>
+                        </div>
+                      
+                      <% tickers != [] -> %>
+                        <% badge_colors = case direction do
+                          "long" -> "bg-green-100 text-green-800"
+                          "short" -> "bg-red-100 text-red-800"
+                          _ -> "bg-gray-100 text-gray-800"
+                        end %>
+                        <div class="flex flex-wrap gap-1">
+                          <%= for ticker <- Enum.take(tickers, 3) do %>
+                            <span class={"inline-flex items-center px-2 py-0.5 rounded text-xs font-medium #{badge_colors}"}>
+                              ${ticker}
+                            </span>
+                          <% end %>
+                          <%= if length(tickers) > 3 do %>
+                            <span class="text-xs text-gray-400">+{length(tickers) - 3}</span>
+                          <% end %>
+                        </div>
+                      
+                      <% true -> %>
+                        <span class="text-gray-400 text-xs">No tickers</span>
+                    <% end %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                    <% created_utc = Map.get(post, "created_utc") %>
+                    <%= if created_utc do %>
+                      <% datetime = DateTime.from_unix!(round(created_utc)) %>
+                      {Calendar.strftime(datetime, "%b %d, %Y")}
+                    <% else %>
+                      -
+                    <% end %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                    {Map.get(post, "score", 0)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                    {Map.get(post, "num_comments", 0)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                    {Map.get(post, "title_length", 0)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                    {Map.get(post, "post_length", 0)}
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+    
+    <%!-- Tickers Table --%>
+    <%= if @ticker_stats != [] && @view_mode == :tickers do %>
+      <div class="bg-white rounded-lg shadow-md p-6 w-full mx-auto">
+        <div class="mb-4">
+          <h2 class="text-xl font-semibold text-gray-800">
+            Ticker Performance Summary
+          </h2>
+          <p class="text-sm text-gray-600 mt-1">
+            Showing unique tickers mentioned by u/{Map.get(@post, "author", "N/A")} with price performance
+          </p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  #
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ticker
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  First Mentioned
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Direction
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Posts count
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Price on Date
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Price 6M Later
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  6M Return
+                </th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Return as of Today
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <%= for {ticker_stat, index} <- Enum.with_index(@ticker_stats, 1) do %>
+                <tr class="hover:bg-gray-50">
+                  <td class="px-2 py-2 text-center text-sm text-gray-500">
+                    {index}
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      ${ticker_stat.ticker}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                    {Date.to_iso8601(ticker_stat.first_mention_date)}
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                    <% badge_colors = case ticker_stat.direction do
+                      "long" -> "bg-green-100 text-green-800"
+                      "short" -> "bg-red-100 text-red-800"
+                      "neutral" -> "bg-gray-100 text-gray-800"
+                      _ -> "bg-yellow-100 text-yellow-800"
+                    end %>
+                    <span class={"inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium #{badge_colors}"}>
+                      {ticker_stat.direction || "n/a"}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                    {ticker_stat.posts_count}
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                    <%= if ticker_stat.loading do %>
+                      <.icon name="hero-arrow-path" class="size-4 animate-spin text-gray-400" />
+                    <% else %>
+                      <%= if ticker_stat.price_on_date do %>
+                        ${Float.round(ticker_stat.price_on_date, 2)}
+                        <%= if ticker_stat.price_date do %>
+                          <div class="text-xs text-gray-400">
+                            {ticker_stat.price_date}
+                          </div>
+                        <% end %>
+                      <% else %>
+                        <span class="text-gray-400">N/A</span>
+                      <% end %>
+                    <% end %>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                    <%= if ticker_stat.loading do %>
+                      <.icon name="hero-arrow-path" class="size-4 animate-spin text-gray-400" />
+                    <% else %>
+                      <%= if ticker_stat.price_6m_later do %>
+                        ${Float.round(ticker_stat.price_6m_later, 2)}
+                        <%= if ticker_stat.price_6m_date do %>
+                          <div class="text-xs text-gray-400">
+                            {ticker_stat.price_6m_date}
+                          </div>
+                        <% end %>
+                      <% else %>
+                        <span class="text-gray-400">N/A</span>
+                      <% end %>
+                    <% end %>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-center">
+                    <%= if ticker_stat.loading do %>
+                      <.icon name="hero-arrow-path" class="size-4 animate-spin text-gray-400" />
+                    <% else %>
+                      <%= if ticker_stat.return_6m do %>
+                        <% return_color = cond do
+                          ticker_stat.return_6m > 10 -> "text-green-600"
+                          ticker_stat.return_6m > 0 -> "text-green-500"
+                          ticker_stat.return_6m < -10 -> "text-red-600"
+                          ticker_stat.return_6m < 0 -> "text-red-500"
+                          true -> "text-gray-600"
+                        end %>
+                        <span class={return_color}>
+                          <%= if ticker_stat.return_6m > 0 do %>+<% end %>{ticker_stat.return_6m}%
+                        </span>
+                      <% else %>
+                        <span class="text-gray-400">N/A</span>
+                      <% end %>
+                    <% end %>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-center">
+                    <%= if ticker_stat.loading do %>
+                      <.icon name="hero-arrow-path" class="size-4 animate-spin text-gray-400" />
+                    <% else %>
+                      <%= if ticker_stat.return_current do %>
+                        <% return_color = cond do
+                          ticker_stat.return_current > 10 -> "text-green-600"
+                          ticker_stat.return_current > 0 -> "text-green-500"
+                          ticker_stat.return_current < -10 -> "text-red-600"
+                          ticker_stat.return_current < 0 -> "text-red-500"
+                          true -> "text-gray-600"
+                        end %>
+                        <span class={return_color}>
+                          <%= if ticker_stat.return_current > 0 do %>+<% end %>{ticker_stat.return_current}%
+                        </span>
+                        <div class="text-xs text-gray-400">
+                          {ticker_stat.current_price_date}
+                        </div>
+                      <% else %>
+                        <%= if ticker_stat.show_current_return do %>
+                          <span class="text-gray-400">N/A</span>
+                        <% else %>
+                          <span class="text-gray-400">-</span>
+                        <% end %>
+                      <% end %>
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

@@ -1,7 +1,7 @@
 defmodule RedditViewerWeb.PageController do
   use RedditViewerWeb, :controller
 
-  alias RedditViewer.RedditAPI
+  alias RedditViewer.PostProcessor
 
   def home(conn, params) do
     # Check if we have a URL parameter
@@ -25,13 +25,13 @@ defmodule RedditViewerWeb.PageController do
         )
 
       url ->
-        # Process the Reddit URL
-        case RedditAPI.get_post_from_url(url) do
+        # Process the Reddit URL using PostProcessor (handles caching and AI enrichment)
+        case PostProcessor.get_or_process_post_from_url(url) do
           {:ok, post} ->
             # Get the author's posts
             author = Map.get(post, "author", "")
 
-            case RedditAPI.get_user_posts(author) do
+            case PostProcessor.get_or_process_user_posts(author) do
               {:ok, user_posts} ->
                 render(conn, :home,
                   reddit_url: url,
@@ -58,6 +58,21 @@ defmodule RedditViewerWeb.PageController do
               error: "Failed to load post: #{reason}"
             )
         end
+    end
+  end
+
+  def retry_failed(conn, %{"author" => author}) do
+    # Retry all failed posts for this author
+    case PostProcessor.retry_failed_posts(author) do
+      {:ok, _} ->
+        conn
+        |> put_flash(:info, "Retrying failed posts...")
+        |> redirect(to: ~p"/")
+
+      {:error, reason} ->
+        conn
+        |> put_flash(:error, "Failed to retry: #{reason}")
+        |> redirect(to: ~p"/")
     end
   end
 end

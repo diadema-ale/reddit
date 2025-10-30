@@ -9,8 +9,15 @@ defmodule RedditViewer.Application do
   def start(_type, _args) do
     children = [
       RedditViewerWeb.Telemetry,
+      RedditViewer.Repo,
       {DNSCluster, query: Application.get_env(:reddit_viewer, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: RedditViewer.PubSub},
+      # Start the rate limiter for OpenAI requests
+      {RedditViewer.RateLimiter, name: RedditViewer.RateLimiter.OpenAI, rate: 10},
+      # Start the rate limiter for Polygon requests
+      RedditViewer.RateLimiter.Polygon,
+      # Start the historical fetcher
+      RedditViewer.HistoricalFetcher,
       # Start a worker by calling: RedditViewer.Worker.start_link(arg)
       # {RedditViewer.Worker, arg},
       # Start to serve requests, typically the last entry
