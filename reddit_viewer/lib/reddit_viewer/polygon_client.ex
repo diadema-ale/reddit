@@ -21,6 +21,7 @@ defmodule RedditViewer.PolygonClient do
     Logger.info("[Polygon] Fetching bars for #{ticker} from #{from_date} to #{to_date}")
 
     headers = []
+
     params = [
       apiKey: @polygon_api_key,
       adjusted: true,
@@ -98,7 +99,8 @@ defmodule RedditViewer.PolygonClient do
     case get_daily_bars(ticker, from_date, to_date) do
       {:ok, bars} when bars != [] ->
         # Find the bar closest to target date
-        target_unix = DateTime.new!(target_date, ~T[00:00:00], "Etc/UTC") |> DateTime.to_unix(:millisecond)
+        target_unix =
+          DateTime.new!(target_date, ~T[00:00:00], "Etc/UTC") |> DateTime.to_unix(:millisecond)
 
         closest_bar =
           bars

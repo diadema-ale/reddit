@@ -4,7 +4,8 @@ defmodule RedditViewer.RateLimiter do
   """
   use GenServer
 
-  @default_rate 10 # requests per second
+  # requests per second
+  @default_rate 10
 
   # Client API
   def start_link(opts \\ []) do
@@ -22,12 +23,13 @@ defmodule RedditViewer.RateLimiter do
     # Schedule token refill
     Process.send_after(self(), :refill, 1000)
 
-    {:ok, %{
-      rate: rate,
-      tokens: rate,
-      max_tokens: rate,
-      waiting: []
-    }}
+    {:ok,
+     %{
+       rate: rate,
+       tokens: rate,
+       max_tokens: rate,
+       waiting: []
+     }}
   end
 
   def handle_call(:acquire_token, from, %{tokens: 0} = state) do
@@ -48,7 +50,9 @@ defmodule RedditViewer.RateLimiter do
     # Process waiting requests
     {to_process, remaining} =
       case Map.get(state, :waiting, []) do
-        [] -> {[], []}
+        [] ->
+          {[], []}
+
         waiting ->
           Enum.split(waiting, new_tokens - state.tokens)
       end
@@ -61,9 +65,6 @@ defmodule RedditViewer.RateLimiter do
     # Schedule next refill
     Process.send_after(self(), :refill, 1000)
 
-    {:noreply, %{state |
-      tokens: new_tokens - length(to_process),
-      waiting: remaining
-    }}
+    {:noreply, %{state | tokens: new_tokens - length(to_process), waiting: remaining}}
   end
 end

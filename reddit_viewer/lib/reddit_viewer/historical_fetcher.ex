@@ -8,9 +8,11 @@ defmodule RedditViewer.HistoricalFetcher do
   require Logger
   import Ecto.Query
 
-  @fetch_interval 2000 # 2 seconds between fetches
+  # 2 seconds between fetches
+  @fetch_interval 2000
   @batch_size 25
-  @five_years_ago_unix 157_680_000 # 5 years in seconds (365.25 * 5 * 24 * 60 * 60)
+  # 5 years in seconds (365.25 * 5 * 24 * 60 * 60)
+  @five_years_ago_unix 157_680_000
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -26,10 +28,11 @@ defmodule RedditViewer.HistoricalFetcher do
 
   # Server callbacks
   def init(_opts) do
-    {:ok, %{
-      current_fetch: nil,
-      progress: %{}
-    }}
+    {:ok,
+     %{
+       current_fetch: nil,
+       progress: %{}
+     }}
   end
 
   def handle_cast({:fetch_historical, username}, state) do
@@ -45,29 +48,39 @@ defmodule RedditViewer.HistoricalFetcher do
       |> Repo.aggregate(:count, :id)
 
     initial_state = %{
-      posts_fetched: 0,  # Start counting from 0 for new fetches
+      # Start counting from 0 for new fetches
+      posts_fetched: 0
     }
 
     message = "Fetching all historical posts for #{username} (#{post_count} already in DB)..."
 
-    Logger.info("[HistoricalFetcher] Starting historical fetch for #{username}, #{post_count} posts already in DB")
+    Logger.info(
+      "[HistoricalFetcher] Starting historical fetch for #{username}, #{post_count} posts already in DB"
+    )
 
     # Start fetch
-    timer_ref = Process.send_after(self(), {:fetch_batch, username, nil, initial_state.posts_fetched}, 100)
+    timer_ref =
+      Process.send_after(self(), {:fetch_batch, username, nil, initial_state.posts_fetched}, 100)
 
-    new_state = %{state |
-      current_fetch: Map.merge(%{
-        username: username,
-        timer_ref: timer_ref,
-        start_time: System.monotonic_time(:second)
-      }, initial_state),
-      progress: Map.put(state.progress, username, %{
-        status: :fetching,
-        posts_fetched: initial_state.posts_fetched,
-        oldest_date: nil,
-        newest_date: nil,
-        message: message
-      })
+    new_state = %{
+      state
+      | current_fetch:
+          Map.merge(
+            %{
+              username: username,
+              timer_ref: timer_ref,
+              start_time: System.monotonic_time(:second)
+            },
+            initial_state
+          ),
+        progress:
+          Map.put(state.progress, username, %{
+            status: :fetching,
+            posts_fetched: initial_state.posts_fetched,
+            oldest_date: nil,
+            newest_date: nil,
+            message: message
+          })
     }
 
     broadcast_progress(username, new_state.progress[username])
@@ -80,7 +93,9 @@ defmodule RedditViewer.HistoricalFetcher do
   end
 
   def handle_info({:fetch_batch, username, after_token, total_fetched}, state) do
-    Logger.info("[HistoricalFetcher] Fetching batch for #{username}, after: #{inspect(after_token)}, total fetched so far: #{total_fetched}")
+    Logger.info(
+      "[HistoricalFetcher] Fetching batch for #{username}, after: #{inspect(after_token)}, total fetched so far: #{total_fetched}"
+    )
 
     case RedditAPI.get_user_posts(username, @batch_size, after_token) do
       {:ok, posts, next_after} ->
@@ -101,7 +116,10 @@ defmodule RedditViewer.HistoricalFetcher do
 
         # Update progress
         oldest_date = format_timestamp(oldest_timestamp)
-        newest_date = get_in(state, [:progress, username, :newest_date]) || format_timestamp(System.system_time(:second))
+
+        newest_date =
+          get_in(state, [:progress, username, :newest_date]) ||
+            format_timestamp(System.system_time(:second))
 
         progress = %{
           status: :fetching,
@@ -120,10 +138,18 @@ defmodule RedditViewer.HistoricalFetcher do
         # 3. We haven't reached 5 years ago
         should_continue = next_after && posts != [] && oldest_timestamp > five_years_ago
 
-        Logger.info("[HistoricalFetcher] Continue check: next_after=#{inspect(next_after)}, posts_count=#{length(posts)}, oldest_timestamp=#{oldest_timestamp}, five_years_ago=#{five_years_ago}, should_continue=#{should_continue}")
+        Logger.info(
+          "[HistoricalFetcher] Continue check: next_after=#{inspect(next_after)}, posts_count=#{length(posts)}, oldest_timestamp=#{oldest_timestamp}, five_years_ago=#{five_years_ago}, should_continue=#{should_continue}"
+        )
 
         if should_continue do
-          timer_ref = Process.send_after(self(), {:fetch_batch, username, next_after, new_total}, @fetch_interval)
+          timer_ref =
+            Process.send_after(
+              self(),
+              {:fetch_batch, username, next_after, new_total},
+              @fetch_interval
+            )
+
           new_state = put_in(new_state, [:current_fetch, :timer_ref], timer_ref)
           {:noreply, new_state}
         else
@@ -132,18 +158,18 @@ defmodule RedditViewer.HistoricalFetcher do
             cond do
               oldest_timestamp <= five_years_ago ->
                 "Fetched all posts back to 5 years ago (#{new_total} posts total)"
+
               posts == [] ->
                 "No more posts available (#{new_total} posts total)"
+
               !next_after ->
                 "Reached end of available posts (#{new_total} posts total)"
+
               true ->
                 "Fetch complete (#{new_total} posts total)"
             end
 
-          final_progress = %{progress |
-            status: :complete,
-            message: complete_message
-          }
+          final_progress = %{progress | status: :complete, message: complete_message}
           new_state = put_in(new_state, [:progress, username], final_progress)
           broadcast_progress(username, final_progress)
 
@@ -154,6 +180,7 @@ defmodule RedditViewer.HistoricalFetcher do
         Logger.error("Failed to fetch posts for #{username}: #{inspect(reason)}")
 
         prev_progress = get_in(state, [:progress, username]) || %{}
+
         progress = %{
           status: :error,
           posts_fetched: total_fetched,
@@ -209,6 +236,7 @@ defmodule RedditViewer.HistoricalFetcher do
     case DateTime.from_unix(round(unix_timestamp)) do
       {:ok, datetime} ->
         Calendar.strftime(datetime, "%b %d, %Y")
+
       _ ->
         "unknown"
     end

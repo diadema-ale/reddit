@@ -92,7 +92,8 @@ defmodule RedditViewer.OpenAIClient do
               "direction" => %{
                 "type" => "string",
                 "enum" => ["long", "short", "neutral", "n/a"],
-                "description" => "The sentiment/direction of the stock pitch: long (bullish), short (bearish), neutral, or n/a if unclear"
+                "description" =>
+                  "The sentiment/direction of the stock pitch: long (bullish), short (bearish), neutral, or n/a if unclear"
               }
             },
             "required" => ["tickers", "confidence", "direction"],

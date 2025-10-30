@@ -22,11 +22,12 @@ defmodule RedditViewer.RateLimiter.Polygon do
     # Schedule first refill
     Process.send_after(self(), :refill, @refill_interval)
 
-    {:ok, %{
-      tokens: @max_tokens,
-      max_tokens: @max_tokens,
-      waiting: []
-    }}
+    {:ok,
+     %{
+       tokens: @max_tokens,
+       max_tokens: @max_tokens,
+       waiting: []
+     }}
   end
 
   @impl true

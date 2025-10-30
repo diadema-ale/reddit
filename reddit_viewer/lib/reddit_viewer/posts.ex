@@ -97,7 +97,8 @@ defmodule RedditViewer.Posts do
     Post
     |> where([p], p.author == ^author)
     |> order_by([p], desc: p.created_utc)
-    |> Repo.all()  # No limit - returns ALL posts for the author
+    # No limit - returns ALL posts for the author
+    |> Repo.all()
   end
 
   @doc """

@@ -118,7 +118,11 @@ defmodule RedditViewer.RedditAPI do
             case Jason.decode(body) do
               {:ok, %{"data" => %{"children" => posts, "after" => after_val}}} ->
                 posts = Enum.map(posts, fn %{"data" => post} -> post end)
-                Logger.info("[RedditAPI] get_user_posts for #{username}: found #{length(posts)} posts, next_after=#{inspect(after_val)}")
+
+                Logger.info(
+                  "[RedditAPI] get_user_posts for #{username}: found #{length(posts)} posts, next_after=#{inspect(after_val)}"
+                )
+
                 {:ok, posts, after_val}
 
               _ ->

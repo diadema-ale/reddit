@@ -1,6 +1,6 @@
 <div class="w-full mx-auto px-4 py-8">
   <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Reddit Post Viewer</h1>
-  
+
   <%!-- URL Input Form --%>
   <form method="get" action="/" class="mb-8">
     <div class="flex gap-4 max-w-2xl mx-auto">
@@ -19,7 +19,7 @@
       </button>
     </div>
   </form>
-  
+
   <%!-- Error Message --%>
   <%= if @error do %>
     <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 max-w-2xl mx-auto">
@@ -27,7 +27,7 @@
       <p>{@error}</p>
     </div>
   <% end %>
-  
+
   <%!-- Post Information --%>
   <%= if @post do %>
     <div class="bg-white rounded-lg shadow-md p-6 mb-8 max-w-4xl mx-auto">
@@ -68,18 +68,11 @@
       <% ticker_symbols = Map.get(@post, "ticker_symbols", []) %>
       <% ticker_direction = Map.get(@post, "ticker_direction") %>
       <%= if ticker_symbols != [] do %>
-        <% badge_colors = case ticker_direction do
-          "long" -> "bg-green-100 text-green-800"
-          "short" -> "bg-red-100 text-red-800"
-          _ -> "bg-gray-100 text-gray-800"
-        end %>
         <div class="mt-4 pt-4 border-t border-gray-200">
           <p class="text-gray-600 mb-2">Ticker Symbols Mentioned:</p>
           <div class="flex flex-wrap gap-2">
             <%= for ticker <- ticker_symbols do %>
-              <span class={"inline-flex items-center px-3 py-1 rounded-full text-sm font-medium #{badge_colors}"}>
-                ${ticker}
-              </span>
+              <UI.TickerBadge.ticker_badge ticker={ticker} direction={ticker_direction} size="md" />
             <% end %>
           </div>
           <%= if Map.get(@post, "cached") do %>
@@ -105,15 +98,16 @@
         </div>
       <% end %>
     </div>
-    
+
     <%!-- User Posts Table --%>
     <%= if @user_posts != [] do %>
       <div class="bg-white rounded-lg shadow-md p-6 w-full mx-auto">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-semibold text-gray-800">
             Recent Posts by u/{Map.get(@post, "author", "N/A")}
-        </h2>
-          <% has_failed = Enum.any?(@user_posts, fn p -> Map.get(p, "ai_processing_error") != nil end) %>
+          </h2>
+          <% has_failed =
+            Enum.any?(@user_posts, fn p -> Map.get(p, "ai_processing_error") != nil end) %>
           <%= if has_failed do %>
             <form method="post" action="/retry-failed" class="inline">
               <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
@@ -122,8 +116,7 @@
                 type="submit"
                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
               >
-                <.icon name="hero-arrow-path" class="size-4 mr-1 inline" />
-                Retry Failed
+                <.icon name="hero-arrow-path" class="size-4 mr-1 inline" /> Retry Failed
               </button>
             </form>
           <% end %>
@@ -165,7 +158,7 @@
                     r/{Map.get(post, "subreddit", "N/A")}
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <a 
+                    <a
                       href={"https://reddit.com" <> Map.get(post, "permalink", "")}
                       target="_blank"
                       class="text-blue-600 hover:text-blue-800 hover:underline"
@@ -179,46 +172,12 @@
                     } />
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <% tickers = Map.get(post, "ticker_symbols", []) %>
-                    <% direction = Map.get(post, "ticker_direction") %>
-                    <% ai_error = Map.get(post, "ai_processing_error") %>
-                    <% ai_processed = Map.get(post, "ai_processed_at") %>
-                    
-                    <%= cond do %>
-                      <% ai_error != nil -> %>
-                        <div class="flex items-center gap-2">
-                          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                            <.icon name="hero-exclamation-triangle" class="size-3 mr-1" />
-                            Failed
-                          </span>
-                        </div>
-                      
-                      <% ai_processed == nil -> %>
-                        <div class="flex items-center gap-1">
-                          <.icon name="hero-arrow-path" class="size-4 text-blue-500 animate-spin" />
-                          <span class="text-xs text-gray-500">Processing...</span>
-                        </div>
-                      
-                      <% tickers != [] -> %>
-                        <% badge_colors = case direction do
-                          "long" -> "bg-green-100 text-green-800"
-                          "short" -> "bg-red-100 text-red-800"
-                          _ -> "bg-gray-100 text-gray-800"
-                        end %>
-                        <div class="flex flex-wrap gap-1">
-                          <%= for ticker <- Enum.take(tickers, 3) do %>
-                            <span class={"inline-flex items-center px-2 py-0.5 rounded text-xs font-medium #{badge_colors}"}>
-                              ${ticker}
-                            </span>
-                          <% end %>
-                          <%= if length(tickers) > 3 do %>
-                            <span class="text-xs text-gray-400">+{length(tickers) - 3}</span>
-                          <% end %>
-                        </div>
-                      
-                      <% true -> %>
-                        <span class="text-gray-400 text-xs">No tickers</span>
-                    <% end %>
+                    <UI.AIStatus.ai_status
+                      processing_error={Map.get(post, "ai_processing_error")}
+                      processed_at={Map.get(post, "ai_processed_at")}
+                      tickers={Map.get(post, "ticker_symbols", [])}
+                      direction={Map.get(post, "ticker_direction")}
+                    />
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                     {Map.get(post, "score", 0)}

@@ -35,7 +35,9 @@ defmodule RedditViewer.PostProcessor do
     # Get the most recent post ID to check if we need to fetch new ones
     most_recent_db_id =
       case db_posts do
-        [] -> nil
+        [] ->
+          nil
+
         posts ->
           posts
           |> Enum.max_by(& &1.created_utc, fn -> nil end)
@@ -48,6 +50,7 @@ defmodule RedditViewer.PostProcessor do
     # Now fetch from Reddit API to check for new posts
     # Use a reasonable limit for checking new posts (100 if no limit specified)
     api_limit = limit || 100
+
     case RedditAPI.get_user_posts(username, api_limit) do
       {:ok, reddit_posts, _after_token} ->
         # Filter out posts we already have, stopping when we hit a known post
@@ -65,6 +68,7 @@ defmodule RedditViewer.PostProcessor do
           new_reddit_posts
           |> Enum.map(fn reddit_post ->
             attrs = RedditAPI.reddit_post_to_db_attrs(reddit_post)
+
             case Posts.upsert_post(attrs) do
               {:ok, post} -> post
               {:error, _} -> nil
@@ -101,7 +105,10 @@ defmodule RedditViewer.PostProcessor do
           end)
         end)
 
-        Logger.info("[PostProcessor] Returning #{length(all_posts)} posts for author #{username} (#{length(db_posts_maps)} from DB, #{length(new_posts_to_process)} new)")
+        Logger.info(
+          "[PostProcessor] Returning #{length(all_posts)} posts for author #{username} (#{length(db_posts_maps)} from DB, #{length(new_posts_to_process)} new)"
+        )
+
         {:ok, all_posts}
 
       error ->
@@ -255,10 +262,11 @@ defmodule RedditViewer.PostProcessor do
       failed_posts
       |> Enum.map(fn post ->
         # Clear the error flag
-        {:ok, post} = Posts.update_post(post, %{
-          ai_processing_error: nil,
-          ai_processed_at: nil
-        })
+        {:ok, post} =
+          Posts.update_post(post, %{
+            ai_processing_error: nil,
+            ai_processed_at: nil
+          })
 
         # Process asynchronously
         Task.async(fn -> enrich_post_with_ai(post) end)
