@@ -250,6 +250,53 @@ defmodule RedditViewerWeb.RedditLive do
   end
 
   @impl true
+  def handle_info({:posts_retried, retried_posts, _failed_posts}, socket) do
+    Logger.debug("[posts_retried] Processing #{length(retried_posts)} retried posts")
+
+    # Update only the retried posts in our user_posts list
+    updated_user_posts =
+      socket.assigns.user_posts
+      |> Enum.map(fn existing_post ->
+        # Find if this post was retried
+        retried_post = Enum.find(retried_posts, fn p -> p.id == existing_post.id end)
+        retried_post || existing_post
+      end)
+
+    # Check if any first mention dates changed for tickers
+    old_ticker_first_mentions = extract_ticker_first_mentions(socket.assigns.user_posts)
+    new_ticker_first_mentions = extract_ticker_first_mentions(updated_user_posts)
+
+    # Only update ticker stats for tickers whose first mention date changed
+    tickers_to_update = find_tickers_with_changed_first_mention(old_ticker_first_mentions, new_ticker_first_mentions)
+
+    socket =
+      if tickers_to_update == [] do
+        # No ticker stats need updating, just update the posts
+        socket
+        |> assign(:user_posts, updated_user_posts)
+        |> stream(:posts, updated_user_posts, reset: false)
+      else
+        # Some ticker stats need updating
+        updated_ticker_stats = update_specific_ticker_stats(
+          socket.assigns.ticker_stats,
+          updated_user_posts,
+          tickers_to_update
+        )
+
+        # Rebuild pitch summary with updated data
+        pitch_summary = build_pitch_summary(updated_user_posts, updated_ticker_stats)
+
+        socket
+        |> assign(:user_posts, updated_user_posts)
+        |> assign(:ticker_stats, updated_ticker_stats)
+        |> assign(:pitch_summary, pitch_summary)
+        |> stream(:posts, updated_user_posts, reset: false)
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_info({:ticker_price_updated, updated_ticker}, socket) do
     # Update the ticker in our list
     Logger.debug("[ticker_price_updated] Received update for ticker: #{updated_ticker.ticker}, has price data: #{updated_ticker.price_on_date != nil}")
@@ -319,10 +366,10 @@ defmodule RedditViewerWeb.RedditLive do
     Task.start(fn ->
       # Get failed posts before retrying
       failed_posts = PostProcessor.get_failed_posts(author)
-      
+
       # Retry the failed posts
       retried_posts = PostProcessor.retry_failed_posts(author)
-      
+
       # Send specific updates for retried posts
       send(liveview_pid, {:posts_retried, retried_posts, failed_posts})
     end)
@@ -351,5 +398,93 @@ defmodule RedditViewerWeb.RedditLive do
 
   defp build_pitch_summary(user_posts, ticker_stats) do
     PitchSummaryBuilder.build_pitch_summary(user_posts, ticker_stats)
+  end
+
+  defp extract_ticker_first_mentions(posts) do
+    # Build a map of ticker -> first mention date
+    posts
+    |> Enum.filter(& &1.ticker_symbols != nil && &1.ticker_symbols != [])
+    |> Enum.reduce(%{}, fn post, acc ->
+      post.ticker_symbols
+      |> Enum.reduce(acc, fn ticker, inner_acc ->
+        post_date = DateTime.to_date(post.created_utc)
+
+        Map.update(inner_acc, ticker, post_date, fn existing_date ->
+          # Keep the earlier date
+          if Date.compare(post_date, existing_date) == :lt do
+            post_date
+          else
+            existing_date
+          end
+        end)
+      end)
+    end)
+  end
+
+  defp find_tickers_with_changed_first_mention(old_mentions, new_mentions) do
+    # Find tickers where the first mention date changed
+    new_mentions
+    |> Enum.filter(fn {ticker, new_date} ->
+      old_date = Map.get(old_mentions, ticker)
+      old_date != new_date
+    end)
+    |> Enum.map(fn {ticker, _date} -> ticker end)
+  end
+
+  defp update_specific_ticker_stats(existing_stats, updated_posts, tickers_to_update) do
+    # Only recalculate stats for specific tickers
+    updated_ticker_data =
+      if tickers_to_update != [] do
+        # Filter posts to only those containing the tickers to update
+        relevant_posts =
+          updated_posts
+          |> Enum.filter(fn post ->
+            post.ticker_symbols &&
+            Enum.any?(post.ticker_symbols, & &1 in tickers_to_update)
+          end)
+
+        # Build stats only for these posts
+        new_stats = TickerStatsBuilder.build_ticker_stats(relevant_posts)
+
+        # Enrich with prices in background
+        liveview_pid = self()
+        new_stats
+        |> Enum.each(fn ticker ->
+          if ticker.ticker in tickers_to_update do
+            Task.start(fn ->
+              updated_ticker = TickerStatsBuilder.enrich_ticker_with_prices(ticker)
+              send(liveview_pid, {:ticker_price_updated, updated_ticker})
+            end)
+          end
+        end)
+
+        new_stats
+      else
+        []
+      end
+
+    # Merge the updated stats with existing ones
+    existing_stats
+    |> Enum.map(fn existing_ticker ->
+      # Check if this ticker needs updating
+      if existing_ticker.ticker in tickers_to_update do
+        # Find the updated version
+        Enum.find(updated_ticker_data, existing_ticker, fn t ->
+          t.ticker == existing_ticker.ticker
+        end)
+      else
+        # Keep the existing ticker data unchanged
+        existing_ticker
+      end
+    end)
+    # Add any new tickers that weren't in the original list
+    |> Kernel.++(
+      updated_ticker_data
+      |> Enum.filter(fn updated ->
+        not Enum.any?(existing_stats, fn e -> e.ticker == updated.ticker end)
+      end)
+    )
+    # Re-sort by first mention date
+    |> Enum.sort_by(& &1.first_mention_date, {:desc, Date})
   end
 end

@@ -247,15 +247,21 @@ defmodule RedditViewer.PostProcessor do
   end
 
   @doc """
-  Retry all failed posts for a given author
+  Get all failed posts for a given author
+  """
+  def get_failed_posts(author) do
+    Post
+    |> where([p], p.author == ^author and not is_nil(p.ai_processing_error))
+    |> order_by([p], desc: p.created_utc)
+    |> Repo.all()
+  end
+
+  @doc """
+  Retry all failed posts for a given author and return the retried posts
   """
   def retry_failed_posts(author) do
     # Get all posts with ai_processing_error for this author
-    failed_posts =
-      Post
-      |> where([p], p.author == ^author and not is_nil(p.ai_processing_error))
-      |> order_by([p], desc: p.created_utc)
-      |> Repo.all()
+    failed_posts = get_failed_posts(author)
 
     # Clear the error and process them again
     tasks =
@@ -268,15 +274,33 @@ defmodule RedditViewer.PostProcessor do
             ai_processed_at: nil
           })
 
-        # Process asynchronously
-        Task.async(fn -> enrich_post_with_ai(post) end)
+        # Process asynchronously and return post id
+        task = Task.async(fn ->
+          enrich_post_with_ai(post)
+          post.id
+        end)
+
+        {task, post.id}
       end)
 
-    # Wait for all to complete (with a longer timeout - 2 minutes)
-    Task.await_many(tasks, 120_000)
+    # Wait for all to complete and collect the post IDs
+    post_ids =
+      tasks
+      |> Enum.map(fn {task, _post_id} ->
+        Task.await(task, 120_000)
+      end)
 
-    {:ok, length(failed_posts)}
+    # Re-fetch the posts with updated data
+    retried_posts =
+      post_ids
+      |> Enum.map(&Repo.get!(Post, &1))
+
+    Logger.info("[PostProcessor] Retried #{length(failed_posts)} failed posts for author: #{author}")
+
+    retried_posts
   rescue
-    e -> {:error, Exception.message(e)}
+    e ->
+      Logger.error("Error retrying failed posts: #{Exception.message(e)}")
+      []
   end
 end
