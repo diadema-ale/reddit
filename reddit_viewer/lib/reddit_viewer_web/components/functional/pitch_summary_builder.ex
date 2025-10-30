@@ -49,7 +49,7 @@ defmodule RedditViewerWeb.Components.Functional.PitchSummaryBuilder do
         |> Enum.map(fn stat -> {stat.ticker, stat} end)
         |> Map.new()
 
-      Logger.info(
+      Logger.debug(
         "[PitchSummary] Building with #{length(ticker_stats_list)} total tickers, #{map_size(ticker_stats_map)} tickers with price data"
       )
 

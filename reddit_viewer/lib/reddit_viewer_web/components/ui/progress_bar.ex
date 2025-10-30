@@ -44,8 +44,7 @@ defmodule RedditViewerWeb.Components.UI.ProgressBar do
           <span class="text-sm text-gray-600">{@message}</span>
         </div>
         <div class="text-sm text-gray-500">
-          <span class="font-medium">{@posts_fetched}</span>
-          posts
+          <span class="font-medium">{@posts_fetched}</span> posts
           <%= if @oldest_date && @newest_date do %>
             <span class="mx-1">·</span>
             <span class="text-gray-600">

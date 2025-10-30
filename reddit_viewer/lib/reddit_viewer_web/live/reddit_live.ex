@@ -4,6 +4,10 @@ defmodule RedditViewerWeb.RedditLive do
   alias RedditViewer.PostProcessor
   alias Phoenix.PubSub
   alias RedditViewerWeb.Components.Functional.{TickerStatsBuilder, PitchSummaryBuilder}
+
+  # Import UI components
+  import RedditViewerWeb.Components.UI.{AIStatus, TickerBadge, ProgressBar}
+
   require Logger
 
   @impl true
@@ -341,7 +345,7 @@ defmodule RedditViewerWeb.RedditLive do
 
     Enum.each(ticker_data, fn ticker_stat ->
       Task.start(fn ->
-        Logger.info("[build_ticker_stats] Starting background task for ticker: #{ticker_stat.ticker}")
+        Logger.debug("[build_ticker_stats] Starting background task for ticker: #{ticker_stat.ticker}")
         enriched = TickerStatsBuilder.enrich_ticker_with_prices(ticker_stat)
         send(me, {:ticker_price_updated, enriched})
       end)

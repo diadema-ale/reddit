@@ -2,7 +2,7 @@
   <div class="w-full mx-auto px-4 sm:px-6 lg:px-8">
     <%!-- Progress Indicator --%>
     <%= if @fetch_progress do %>
-      <UI.ProgressBar.progress_bar
+      <.progress_bar
         status={@fetch_progress.status}
         message={@fetch_progress.message}
         posts_fetched={@fetch_progress.posts_fetched}
@@ -11,16 +11,11 @@
         class="mb-4 max-w-7xl mx-auto"
       />
     <% end %>
-
+    
     <%!-- Search Form --%>
     <div class="bg-white rounded-lg shadow-md p-6 mb-8 max-w-7xl mx-auto">
       <h1 class="text-2xl font-bold mb-4 text-gray-800">Author History</h1>
-      <.form
-        for={%{"search" => %{"reddit_url" => @reddit_url}}}
-        phx-submit="search"
-        class="mb-4"
-        id="search-form"
-      >
+      <.form for={%{"search" => %{"reddit_url" => @reddit_url}}} phx-submit="search" class="mb-4" id="search-form">
         <div class="flex gap-2">
           <.input
             name="search[reddit_url]"
@@ -54,89 +49,79 @@
 
     <%!-- Single Post Display --%>
     <%= if @post do %>
-      <div class="bg-white rounded-lg shadow-md p-6 mb-8 max-w-7xl mx-auto">
-        <% full_title = Map.get(@post, "title", "Untitled") %>
-        <% truncated_title =
-          if String.length(full_title) > 50 do
-            String.slice(full_title, 0, 50) <> "..."
-          else
-            full_title
-          end %>
-        <h2 class="text-xl font-semibold mb-4 text-gray-800" title={full_title}>
-          {truncated_title}
-        </h2>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <p class="text-gray-600">
-              <span class="font-semibold">Author:</span> u/{Map.get(@post, "author", "N/A")}
-            </p>
-            <p class="text-gray-600">
-              <span class="font-semibold">Subreddit:</span> r/{Map.get(@post, "subreddit", "N/A")}
-            </p>
-          </div>
-          <div>
-            <p class="text-gray-600">
-              <span class="font-semibold">Upvotes:</span> {Map.get(@post, "score", 0)}
-            </p>
-            <p class="text-gray-600">
-              <span class="font-semibold">Comments:</span> {Map.get(@post, "num_comments", 0)}
-            </p>
-          </div>
-        </div>
-
-        <% selftext = Map.get(@post, "selftext") %>
-        <%= if selftext && selftext != "" do %>
-          <div class="mt-4 p-4 bg-gray-50 rounded-lg">
-            <% truncated_text =
-              if String.length(selftext) > 150 do
-                String.slice(selftext, 0, 150) <> "..."
-              else
-                selftext
-              end %>
-            <p class="text-gray-700 whitespace-pre-wrap">{truncated_text}</p>
-          </div>
-        <% end %>
-
-        <div class="flex items-center gap-4 mt-4 text-sm text-gray-500">
-          <p>
-            <span class="font-medium">Posted:</span>
-            <% timestamp = Map.get(@post, "created_utc") %>
-            <%= if timestamp do %>
-              {DateTime.from_unix!(round(timestamp)) |> DateTime.to_string()}
-            <% end %>
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8 max-w-7xl mx-auto">
+      <% full_title = Map.get(@post, "title", "Untitled") %>
+      <% truncated_title = if String.length(full_title) > 50 do
+        String.slice(full_title, 0, 50) <> "..."
+      else
+        full_title
+      end %>
+      <h2 class="text-xl font-semibold mb-4 text-gray-800" title={full_title}>{truncated_title}</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <p class="text-gray-600">
+            <span class="font-semibold">Author:</span> u/{Map.get(@post, "author", "N/A")}
+          </p>
+          <p class="text-gray-600">
+            <span class="font-semibold">Subreddit:</span> r/{Map.get(@post, "subreddit", "N/A")}
           </p>
         </div>
-        <% ticker_symbols = Map.get(@post, "ticker_symbols", []) %>
-        <% ticker_direction = Map.get(@post, "ticker_direction") %>
-        <%= if ticker_symbols != [] do %>
-          <div class="mt-4 pt-4 border-t border-gray-200">
-            <p class="text-gray-600 mb-2">Ticker Symbols Mentioned:</p>
-            <div class="flex flex-wrap gap-2">
-              <%= for ticker <- ticker_symbols do %>
-                <UI.TickerBadge.ticker_badge
-                  ticker={ticker}
-                  direction={ticker_direction}
-                  size="md"
-                />
-              <% end %>
-            </div>
-            <%= if Map.get(@post, "cached") do %>
-              <p class="text-xs text-gray-500 mt-2">
-                <.icon name="hero-check-circle" class="size-3 inline" /> Data from cache
-              </p>
+        <div>
+          <p class="text-gray-600">
+            <span class="font-semibold">Upvotes:</span> {Map.get(@post, "score", 0)}
+          </p>
+          <p class="text-gray-600">
+            <span class="font-semibold">Comments:</span> {Map.get(@post, "num_comments", 0)}
+          </p>
+        </div>
+      </div>
+      
+      <% selftext = Map.get(@post, "selftext") %>
+      <%= if selftext && selftext != "" do %>
+        <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+          <% truncated_text = if String.length(selftext) > 150 do
+            String.slice(selftext, 0, 150) <> "..."
+          else
+            selftext
+          end %>
+          <p class="text-gray-700 whitespace-pre-wrap">{truncated_text}</p>
+        </div>
+      <% end %>
+
+      <div class="flex items-center gap-4 mt-4 text-sm text-gray-500">
+        <p>
+          <span class="font-medium">Posted:</span> 
+          <% timestamp = Map.get(@post, "created_utc") %>
+          <%= if timestamp do %>
+            {DateTime.from_unix!(round(timestamp)) |> DateTime.to_string()}
+          <% end %>
+        </p>
+      </div>
+      <% ticker_symbols = Map.get(@post, "ticker_symbols", []) %>
+      <% ticker_direction = Map.get(@post, "ticker_direction") %>
+      <%= if ticker_symbols != [] do %>
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <p class="text-gray-600 mb-2">Ticker Symbols Mentioned:</p>
+          <div class="flex flex-wrap gap-2">
+            <%= for ticker <- ticker_symbols do %>
+              <.ticker_badge ticker={ticker} direction={ticker_direction} size="md" />
             <% end %>
           </div>
-        <% end %>
-      </div>
+          <%= if Map.get(@post, "cached") do %>
+            <p class="text-xs text-gray-500 mt-2">
+              <.icon name="hero-check-circle" class="size-3 inline" /> Data from cache
+            </p>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
     <% end %>
-
+    
     <%!-- Pitch Summary Table --%>
     <%= if @pitch_summary do %>
       <div class="bg-white rounded-lg shadow-md p-6 mb-4 max-w-4xl mx-auto">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">
-          Performance Summary for u/{Map.get(@post || %{}, "author", "N/A")}
-        </h3>
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Performance Summary for u/{Map.get(@post || %{}, "author", "N/A")}</h3>
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -183,10 +168,7 @@
                 </td>
                 <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
                   <%= if @pitch_summary.long.count > 0 do %>
-                    {Float.round(
-                      @pitch_summary.long.right_direction / @pitch_summary.long.count * 100,
-                      1
-                    )}%
+                    {Float.round(@pitch_summary.long.right_direction / @pitch_summary.long.count * 100, 1)}%
                   <% else %>
                     -
                   <% end %>
@@ -194,10 +176,7 @@
                 <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
                   <%= if @pitch_summary.long.avg_return_right do %>
                     <span class="text-green-600">
-                      <%= if @pitch_summary.long.avg_return_right > 0 do %>
-                        +
-                      <% end %>
-                      {@pitch_summary.long.avg_return_right}%
+                      <%= if @pitch_summary.long.avg_return_right > 0 do %>+<% end %>{@pitch_summary.long.avg_return_right}%
                     </span>
                   <% else %>
                     -
@@ -206,17 +185,14 @@
                 <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
                   <%= if @pitch_summary.long.avg_return_wrong do %>
                     <span class="text-red-600">
-                      <%= if @pitch_summary.long.avg_return_wrong > 0 do %>
-                        +
-                      <% end %>
-                      {@pitch_summary.long.avg_return_wrong}%
+                      <%= if @pitch_summary.long.avg_return_wrong > 0 do %>+<% end %>{@pitch_summary.long.avg_return_wrong}%
                     </span>
                   <% else %>
                     -
                   <% end %>
                 </td>
               </tr>
-
+              
               <%!-- Short positions --%>
               <tr>
                 <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -235,10 +211,7 @@
                 </td>
                 <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
                   <%= if @pitch_summary.short.count > 0 do %>
-                    {Float.round(
-                      @pitch_summary.short.right_direction / @pitch_summary.short.count * 100,
-                      1
-                    )}%
+                    {Float.round(@pitch_summary.short.right_direction / @pitch_summary.short.count * 100, 1)}%
                   <% else %>
                     -
                   <% end %>
@@ -246,10 +219,7 @@
                 <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
                   <%= if @pitch_summary.short.avg_return_right do %>
                     <span class="text-green-600">
-                      <%= if @pitch_summary.short.avg_return_right > 0 do %>
-                        +
-                      <% end %>
-                      {@pitch_summary.short.avg_return_right}%
+                      <%= if @pitch_summary.short.avg_return_right > 0 do %>+<% end %>{@pitch_summary.short.avg_return_right}%
                     </span>
                   <% else %>
                     -
@@ -258,17 +228,14 @@
                 <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
                   <%= if @pitch_summary.short.avg_return_wrong do %>
                     <span class="text-red-600">
-                      <%= if @pitch_summary.short.avg_return_wrong > 0 do %>
-                        +
-                      <% end %>
-                      {@pitch_summary.short.avg_return_wrong}%
+                      <%= if @pitch_summary.short.avg_return_wrong > 0 do %>+<% end %>{@pitch_summary.short.avg_return_wrong}%
                     </span>
                   <% else %>
                     -
                   <% end %>
                 </td>
               </tr>
-
+              
               <%!-- Total row --%>
               <tr class="border-t-2 border-gray-300">
                 <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">
@@ -285,10 +252,7 @@
                 </td>
                 <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
                   <%= if @pitch_summary.total.count > 0 do %>
-                    {Float.round(
-                      @pitch_summary.total.right_direction / @pitch_summary.total.count * 100,
-                      1
-                    )}%
+                    {Float.round(@pitch_summary.total.right_direction / @pitch_summary.total.count * 100, 1)}%
                   <% else %>
                     -
                   <% end %>
@@ -296,10 +260,7 @@
                 <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
                   <%= if @pitch_summary.total.avg_return_right do %>
                     <span class="text-green-600">
-                      <%= if @pitch_summary.total.avg_return_right > 0 do %>
-                        +
-                      <% end %>
-                      {@pitch_summary.total.avg_return_right}%
+                      <%= if @pitch_summary.total.avg_return_right > 0 do %>+<% end %>{@pitch_summary.total.avg_return_right}%
                     </span>
                   <% else %>
                     -
@@ -308,17 +269,14 @@
                 <td class="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
                   <%= if @pitch_summary.total.avg_return_wrong do %>
                     <span class="text-red-600">
-                      <%= if @pitch_summary.total.avg_return_wrong > 0 do %>
-                        +
-                      <% end %>
-                      {@pitch_summary.total.avg_return_wrong}%
+                      <%= if @pitch_summary.total.avg_return_wrong > 0 do %>+<% end %>{@pitch_summary.total.avg_return_wrong}%
                     </span>
                   <% else %>
                     -
                   <% end %>
                 </td>
               </tr>
-
+              
               <%!-- Neutral row --%>
               <tr>
                 <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -329,10 +287,7 @@
                 <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
                   {@pitch_summary.neutral.count}
                 </td>
-                <td
-                  class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center"
-                  colspan="5"
-                >
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center" colspan="5">
                   <span class="text-gray-400">Not applicable for neutral positions</span>
                 </td>
               </tr>
@@ -356,31 +311,27 @@
             phx-value-view="posts"
             class={[
               "px-6 py-2 rounded-lg font-medium transition-colors duration-200",
-              if(@view_mode == :posts,
-                do: "bg-blue-600 text-white",
-                else: "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              )
+              if(@view_mode == :posts, do: "bg-blue-600 text-white", else: "bg-gray-200 text-gray-700 hover:bg-gray-300")
             ]}
           >
-            <.icon name="hero-document-text" class="size-5 inline mr-2" /> Posts View
+            <.icon name="hero-document-text" class="size-5 inline mr-2" />
+            Posts View
           </button>
           <button
             phx-click="toggle_view"
             phx-value-view="tickers"
             class={[
               "px-6 py-2 rounded-lg font-medium transition-colors duration-200",
-              if(@view_mode == :tickers,
-                do: "bg-blue-600 text-white",
-                else: "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              )
+              if(@view_mode == :tickers, do: "bg-blue-600 text-white", else: "bg-gray-200 text-gray-700 hover:bg-gray-300")
             ]}
           >
-            <.icon name="hero-chart-bar" class="size-5 inline mr-2" /> Tickers View
+            <.icon name="hero-chart-bar" class="size-5 inline mr-2" />
+            Tickers View
           </button>
         </div>
       </div>
     <% end %>
-
+    
     <%!-- User Posts Table --%>
     <%= if @user_posts != [] && @view_mode == :posts do %>
       <div class="bg-white rounded-lg shadow-md p-6 w-full mx-auto">
@@ -388,15 +339,15 @@
           <h2 class="text-xl font-semibold text-gray-800">
             Recent Posts by u/{Map.get(@post, "author", "N/A")}
           </h2>
-          <% has_failed =
-            Enum.any?(@user_posts, fn p -> Map.get(p, "ai_processing_error") != nil end) %>
+          <% has_failed = Enum.any?(@user_posts, fn p -> Map.get(p, "ai_processing_error") != nil end) %>
           <%= if has_failed do %>
             <button
               phx-click="retry_failed"
               phx-value-author={Map.get(@post, "author", "")}
               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
             >
-              <.icon name="hero-arrow-path" class="size-4 mr-1 inline" /> Retry Failed
+              <.icon name="hero-arrow-path" class="size-4 mr-1 inline" />
+              Retry Failed
             </button>
           <% end %>
         </div>
@@ -461,7 +412,7 @@
                     } />
                   </td>
                   <td class="px-6 py-4 text-sm text-gray-500 min-w-[200px]">
-                    <UI.AIStatus.ai_status
+                    <.ai_status
                       processing_error={Map.get(post, "ai_processing_error")}
                       processed_at={Map.get(post, "ai_processed_at")}
                       tickers={Map.get(post, "ticker_symbols", [])}
@@ -496,7 +447,7 @@
         </div>
       </div>
     <% end %>
-
+    
     <%!-- Tickers Table --%>
     <%= if @ticker_stats != [] && @view_mode == :tickers do %>
       <div class="bg-white rounded-lg shadow-md p-6 w-full mx-auto">
@@ -556,13 +507,12 @@
                     {Date.to_iso8601(ticker_stat.first_mention_date)}
                   </td>
                   <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
-                    <% badge_colors =
-                      case ticker_stat.direction do
-                        "long" -> "bg-green-100 text-green-800"
-                        "short" -> "bg-red-100 text-red-800"
-                        "neutral" -> "bg-gray-100 text-gray-800"
-                        _ -> "bg-yellow-100 text-yellow-800"
-                      end %>
+                    <% badge_colors = case ticker_stat.direction do
+                      "long" -> "bg-green-100 text-green-800"
+                      "short" -> "bg-red-100 text-red-800"
+                      "neutral" -> "bg-gray-100 text-gray-800"
+                      _ -> "bg-yellow-100 text-yellow-800"
+                    end %>
                     <span class={"inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium #{badge_colors}"}>
                       {ticker_stat.direction || "n/a"}
                     </span>
@@ -607,19 +557,15 @@
                       <.icon name="hero-arrow-path" class="size-4 animate-spin text-gray-400" />
                     <% else %>
                       <%= if ticker_stat.return_6m do %>
-                        <% return_color =
-                          cond do
-                            ticker_stat.return_6m > 10 -> "text-green-600"
-                            ticker_stat.return_6m > 0 -> "text-green-500"
-                            ticker_stat.return_6m < -10 -> "text-red-600"
-                            ticker_stat.return_6m < 0 -> "text-red-500"
-                            true -> "text-gray-600"
-                          end %>
+                        <% return_color = cond do
+                          ticker_stat.return_6m > 10 -> "text-green-600"
+                          ticker_stat.return_6m > 0 -> "text-green-500"
+                          ticker_stat.return_6m < -10 -> "text-red-600"
+                          ticker_stat.return_6m < 0 -> "text-red-500"
+                          true -> "text-gray-600"
+                        end %>
                         <span class={return_color}>
-                          <%= if ticker_stat.return_6m > 0 do %>
-                            +
-                          <% end %>
-                          {ticker_stat.return_6m}%
+                          <%= if ticker_stat.return_6m > 0 do %>+<% end %>{ticker_stat.return_6m}%
                         </span>
                       <% else %>
                         <span class="text-gray-400">N/A</span>
@@ -631,19 +577,15 @@
                       <.icon name="hero-arrow-path" class="size-4 animate-spin text-gray-400" />
                     <% else %>
                       <%= if ticker_stat.return_current do %>
-                        <% return_color =
-                          cond do
-                            ticker_stat.return_current > 10 -> "text-green-600"
-                            ticker_stat.return_current > 0 -> "text-green-500"
-                            ticker_stat.return_current < -10 -> "text-red-600"
-                            ticker_stat.return_current < 0 -> "text-red-500"
-                            true -> "text-gray-600"
-                          end %>
+                        <% return_color = cond do
+                          ticker_stat.return_current > 10 -> "text-green-600"
+                          ticker_stat.return_current > 0 -> "text-green-500"
+                          ticker_stat.return_current < -10 -> "text-red-600"
+                          ticker_stat.return_current < 0 -> "text-red-500"
+                          true -> "text-gray-600"
+                        end %>
                         <span class={return_color}>
-                          <%= if ticker_stat.return_current > 0 do %>
-                            +
-                          <% end %>
-                          {ticker_stat.return_current}%
+                          <%= if ticker_stat.return_current > 0 do %>+<% end %>{ticker_stat.return_current}%
                         </span>
                         <div class="text-xs text-gray-400">
                           {ticker_stat.current_price_date}
