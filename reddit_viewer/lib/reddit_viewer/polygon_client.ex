@@ -18,7 +18,7 @@ defmodule RedditViewer.PolygonClient do
 
     url = "#{@polygon_base_url}/v2/aggs/ticker/#{ticker}/range/1/day/#{from_date}/#{to_date}"
 
-    Logger.info("[Polygon] Fetching bars for #{ticker} from #{from_date} to #{to_date}")
+    Logger.debug("[Polygon] Fetching bars for #{ticker} from #{from_date} to #{to_date}")
 
     headers = []
 
@@ -31,7 +31,7 @@ defmodule RedditViewer.PolygonClient do
 
     case Req.get(url, headers: headers, params: params) do
       {:ok, %Req.Response{status: 200, body: body}} ->
-        Logger.info("[Polygon] Got successful response for #{ticker}")
+        Logger.debug("[Polygon] Got successful response for #{ticker}")
         parse_bars_response(body)
 
       {:ok, %Req.Response{status: status, body: body}} ->
@@ -152,8 +152,13 @@ defmodule RedditViewer.PolygonClient do
 
   def calculate_return(_, _), do: nil
 
+  defp parse_bars_response(%{"status" => "OK", "resultsCount" => 0}) do
+    Logger.debug("[Polygon] No data available for ticker")
+    {:ok, []}
+  end
+
   defp parse_bars_response(%{"status" => "OK", "results" => results}) when is_list(results) do
-    Logger.info("[Polygon] Parsed #{length(results)} bars from response")
+    Logger.debug("[Polygon] Parsed #{length(results)} bars from response")
     {:ok, results}
   end
 

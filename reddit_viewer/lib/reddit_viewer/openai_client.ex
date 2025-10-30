@@ -25,9 +25,9 @@ defmodule RedditViewer.OpenAIClient do
         {"content-type", "application/json"}
       ]
 
-      Logger.info("Calling OpenAI API with model: #{@model}")
+      Logger.debug("Calling OpenAI API with model: #{@model}")
 
-      case Req.post(@openai_url, json: request_body, headers: headers, receive_timeout: 60_000) do
+      case Req.post(@openai_url, json: request_body, headers: headers, receive_timeout: 120_000) do
         {:ok, %Req.Response{status: 200, body: body}} ->
           parse_response(body)
 

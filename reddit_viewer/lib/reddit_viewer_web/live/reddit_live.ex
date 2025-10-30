@@ -252,7 +252,7 @@ defmodule RedditViewerWeb.RedditLive do
   @impl true
   def handle_info({:ticker_price_updated, updated_ticker}, socket) do
     # Update the ticker in our list
-    Logger.info("[ticker_price_updated] Received update for ticker: #{updated_ticker.ticker}, has price data: #{updated_ticker.price_on_date != nil}")
+    Logger.debug("[ticker_price_updated] Received update for ticker: #{updated_ticker.ticker}, has price data: #{updated_ticker.price_on_date != nil}")
 
     updated_stats =
       socket.assigns.ticker_stats
@@ -266,9 +266,9 @@ defmodule RedditViewerWeb.RedditLive do
       |> Enum.sort_by(& &1.first_mention_date, {:desc, Date})  # Maintain sort order
 
     # Log to verify sort order is maintained
-    Logger.info("[ticker_price_updated] Updated ticker order - first 5:")
+    Logger.debug("[ticker_price_updated] Updated ticker order - first 5:")
     updated_stats |> Enum.take(5) |> Enum.each(fn stat ->
-      Logger.info("  #{stat.ticker}: #{Date.to_iso8601(stat.first_mention_date)}")
+      Logger.debug("  #{stat.ticker}: #{Date.to_iso8601(stat.first_mention_date)}")
     end)
 
     # Rebuild pitch summary with updated ticker data
@@ -317,21 +317,15 @@ defmodule RedditViewerWeb.RedditLive do
 
     # Start the retry in the background
     Task.start(fn ->
-      PostProcessor.retry_failed_posts(author)
+      # Get failed posts before retrying
+      failed_posts = PostProcessor.get_failed_posts(author)
+      
+      # Retry the failed posts
+      retried_posts = PostProcessor.retry_failed_posts(author)
+      
+      # Send specific updates for retried posts
+      send(liveview_pid, {:posts_retried, retried_posts, failed_posts})
     end)
-
-    # Refresh the user posts to show the updated status
-    if socket.assigns.post do
-      Task.start(fn ->
-        Process.sleep(100) # Small delay to allow DB updates
-        case PostProcessor.get_or_process_user_posts(author, 25) do
-          {:ok, user_posts} ->
-            send(liveview_pid, {:user_posts_loaded, user_posts})
-          _ ->
-            :ok
-        end
-      end)
-    end
 
     {:noreply, put_flash(socket, :info, "Retrying failed posts...")}
   end
